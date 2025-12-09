@@ -143,40 +143,85 @@ function suggestScalesForChord(chord) {
   });
 }
 
+// Pre-compute chord PC sets for each chord type (performance optimization)
+const CHORD_TYPE_PC_SETS = CHORD_TYPES.map(type => 
+  new Set(type.intervals)
+);
+
+// Cache for chord detection results
+const chordCache = new Map();
+let lastCacheKey = null;
+
 // Return list of chord matches given active MIDI notes (Set<number>)
 function detectChords(activeMidiNotes) {
   const pcs = new Set([...activeMidiNotes].map(n => (n % 12 + 12) % 12));
   if (pcs.size === 0) return [];
 
+  // Create cache key from sorted pitch classes
+  const cacheKey = [...pcs].sort((a, b) => a - b).join(',');
+  if (cacheKey === lastCacheKey && chordCache.has(cacheKey)) {
+    return chordCache.get(cacheKey);
+  }
+
   const results = [];
 
   for (let rootPc = 0; rootPc < 12; rootPc++) {
-    for (const type of CHORD_TYPES) {
-      const chordPcs = type.intervals.map(i => (rootPc + i) % 12);
+    for (let typeIdx = 0; typeIdx < CHORD_TYPES.length; typeIdx++) {
+      const type = CHORD_TYPES[typeIdx];
+      const basePcSet = CHORD_TYPE_PC_SETS[typeIdx];
+      
+      // Compute chord PCs as Set for faster operations
+      const chordPcs = new Set([...basePcSet].map(i => (rootPc + i) % 12));
 
-      // active PCs must be subset of chord PCs
-      const isSubset = [...pcs].every(pc => chordPcs.includes(pc));
+      // Check if active PCs are subset of chord PCs (optimized Set operation)
+      let isSubset = true;
+      for (const pc of pcs) {
+        if (!chordPcs.has(pc)) {
+          isSubset = false;
+          break;
+        }
+      }
       if (!isSubset) continue;
 
-      const missingPcs = chordPcs.filter(pc => !pcs.has(pc));
+      // Compute missing PCs (optimized Set operation)
+      const missingPcs = [];
+      for (const pc of chordPcs) {
+        if (!pcs.has(pc)) {
+          missingPcs.push(pc);
+        }
+      }
 
       results.push({
         rootPc,
         rootName: pcToName(rootPc),
         type,
-        chordPcs,
+        chordPcs: [...chordPcs],
         missingPcs
       });
     }
   }
 
+  // Deduplicate using Set (faster than filter)
   const seen = new Set();
-  return results.filter(ch => {
+  const uniqueResults = [];
+  for (const ch of results) {
     const key = ch.rootPc + ":" + ch.type.name;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueResults.push(ch);
+    }
+  }
+
+  // Cache the result
+  if (chordCache.size > 50) {
+    // Limit cache size to prevent memory issues
+    const firstKey = chordCache.keys().next().value;
+    chordCache.delete(firstKey);
+  }
+  chordCache.set(cacheKey, uniqueResults);
+  lastCacheKey = cacheKey;
+
+  return uniqueResults;
 }
 
 // "Where next" suggestion engine
@@ -476,7 +521,8 @@ function renderChordCard(chord, isBookmarked = false) {
     } else {
       bookmarkedChords.set(key, { ...chord });
     }
-    render();
+    // Only re-render chords, keyboard doesn't need updating
+    scheduleChordRender();
   };
 
   const copyBtn = document.createElement("button");
@@ -702,36 +748,35 @@ function renderChordCard(chord, isBookmarked = false) {
 let renderScheduled = false;
 let renderFrameId = null;
 
+// Track current active pitch classes for efficient updates
+let currentActivePcs = new Set();
+
 // Fast keyboard update (called immediately on MIDI events)
+// Optimized to only update changed keys
 function updateKeyboard() {
   const pcs = new Set([...activeMidiNotes].map(n => (n % 12 + 12) % 12));
 
-  // Track previous active pitch classes BEFORE clearing
-  const previousActivePcs = new Set();
-  keyElements.forEach((el, idx) => {
-    if (el.classList.contains("active")) {
-      previousActivePcs.add(idx);
-    }
-  });
-
-  // clear keyboard classes
-  keyElements.forEach(el => el.classList.remove("active", "possible"));
-
-  // mark active pitch classes and display MIDI note numbers
-  keyElements.forEach((el, idx) => {
-    const pc = idx;
-    const midiNoteSpan = el.querySelector(".midi-note-number");
+  // Only update keys that changed state
+  for (let pc = 0; pc < 12; pc++) {
+    const el = keyElements[pc];
+    const wasActive = currentActivePcs.has(pc);
+    const isActive = pcs.has(pc);
     
-    // Find all active MIDI notes with this pitch class
-    const notesForPc = [...activeMidiNotes].filter(note => (note % 12) === pc).sort((a, b) => a - b);
-    const wasActive = previousActivePcs.has(pc);
-    const isActive = notesForPc.length > 0;
+    // Skip if state hasn't changed
+    if (wasActive === isActive) continue;
+    
+    const midiNoteSpan = el.querySelector(".midi-note-number");
     
     if (isActive) {
       el.classList.add("active");
+      // Find all active MIDI notes with this pitch class
+      const notesForPc = [...activeMidiNotes]
+        .filter(note => (note % 12) === pc)
+        .sort((a, b) => a - b);
       if (midiNoteSpan) {
         midiNoteSpan.textContent = notesForPc.join(",");
       }
+      currentActivePcs.add(pc);
     } else {
       el.classList.remove("active");
       if (midiNoteSpan) {
@@ -739,7 +784,7 @@ function updateKeyboard() {
       }
       
       // If note was just released, trigger dissolve animation
-      if (wasActive && !isActive) {
+      if (wasActive) {
         // Set border to active color first, then transition to default or possible color
         el.style.borderColor = "#a5f3fc";
         // Force reflow to ensure the initial color is applied
@@ -747,8 +792,9 @@ function updateKeyboard() {
         // Now transition to default color (will be overridden by possible class if applicable)
         el.style.borderColor = "rgba(148, 163, 184, 0.15)";
       }
+      currentActivePcs.delete(pc);
     }
-  });
+  }
 }
 
 // Expensive chord rendering (deferred to requestAnimationFrame)
@@ -838,28 +884,40 @@ function renderChords() {
   }
 
   // mark possible chord tones on keyboard (including missing)
-  // Only mark keys from filtered chords
+  // Only mark keys from filtered chords (optimized with direct array access)
   const possiblePcs = new Set();
-  filteredChords.forEach(({ chord }) => chord.chordPcs.forEach(pc => possiblePcs.add(pc)));
-  possiblePcs.forEach(pc => {
-    if (!pcs.has(pc)) {
-      const el = keyElements.find(k => parseInt(k.dataset.pc, 10) === pc);
-      if (el && !el.classList.contains("active")) {
-        el.classList.add("possible");
-        // Clear any inline border color styles so CSS can take over
-        el.style.borderColor = "";
-      }
+  for (let i = 0; i < filteredChords.length; i++) {
+    const chordPcs = filteredChords[i].chord.chordPcs;
+    for (let j = 0; j < chordPcs.length; j++) {
+      possiblePcs.add(chordPcs[j]);
     }
-  });
+  }
+  
+  // Update possible keys efficiently
+  for (let pc = 0; pc < 12; pc++) {
+    const el = keyElements[pc];
+    const shouldBePossible = !pcs.has(pc) && possiblePcs.has(pc) && !el.classList.contains("active");
+    const isPossible = el.classList.contains("possible");
+    
+    if (shouldBePossible && !isPossible) {
+      el.classList.add("possible");
+      el.style.borderColor = "";
+    } else if (!shouldBePossible && isPossible) {
+      el.classList.remove("possible");
+    }
+  }
   
 
   // Render all filtered chords, with starred (bookmarked) first
+  // Use document fragment for batch DOM operations (performance optimization)
+  const fragment = document.createDocumentFragment();
   filteredChords
     .sort((a, b) => (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0))
     .forEach(({ chord, isBookmarked }) => {
-    const row = renderChordCard(chord, isBookmarked);
-    chordsContainer.appendChild(row);
+      const row = renderChordCard(chord, isBookmarked);
+      fragment.appendChild(row);
     });
+  chordsContainer.appendChild(fragment);
 }
 
 // Main render function - schedules updates efficiently
@@ -867,7 +925,38 @@ function render() {
   // Update keyboard immediately for instant visual feedback
   updateKeyboard();
   
-  // Schedule expensive chord rendering for next animation frame
+  // Schedule expensive chord rendering
+  scheduleChordRender();
+}
+
+// === MIDI handling ===
+function handleMidiMessage(e) {
+  const [status, note, velocity] = e.data;
+  const cmd = status & 0xf0;
+
+  // Update note state
+  const wasNoteActive = activeMidiNotes.has(note);
+  if (cmd === 0x90 && velocity > 0) {
+    if (!wasNoteActive) {
+      activeMidiNotes.add(note);          // Note On
+      // Update keyboard immediately for instant feedback
+      updateKeyboard();
+      // Schedule chord rendering
+      scheduleChordRender();
+    }
+  } else if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
+    if (wasNoteActive) {
+      activeMidiNotes.delete(note);       // Note Off
+      // Update keyboard immediately for instant feedback
+      updateKeyboard();
+      // Schedule chord rendering
+      scheduleChordRender();
+    }
+  }
+}
+
+// Separate function to schedule chord rendering (reusable)
+function scheduleChordRender() {
   if (!renderScheduled) {
     renderScheduled = true;
     if (renderFrameId !== null) {
@@ -879,19 +968,6 @@ function render() {
       renderChords();
     });
   }
-}
-
-// === MIDI handling ===
-function handleMidiMessage(e) {
-  const [status, note, velocity] = e.data;
-  const cmd = status & 0xf0;
-
-  if (cmd === 0x90 && velocity > 0) {
-    activeMidiNotes.add(note);          // Note On
-  } else if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
-    activeMidiNotes.delete(note);       // Note Off
-  }
-  render();
 }
 
 function initMidi() {
@@ -966,7 +1042,8 @@ function initMoodDropdown() {
         selectedMoods.delete(mood);
       }
       updateMoodFilterText();
-      render();
+      // Only re-render chords, keyboard doesn't need updating
+      scheduleChordRender();
     });
     
     item.appendChild(checkbox);
@@ -991,7 +1068,8 @@ function setupFilters() {
   if (styleFilterEl) {
     styleFilterEl.addEventListener("change", (e) => {
       selectedStyle = e.target.value;
-      render();
+      // Only re-render chords, keyboard doesn't need updating
+      scheduleChordRender();
     });
   }
 
@@ -1078,7 +1156,9 @@ function handleKeyDown(e) {
     pressedKeys.add(key);
     activeMidiNotes.add(midiNote);
     playNote(midiNote);
-    render();
+    // Update keyboard immediately, then schedule chord render
+    updateKeyboard();
+    scheduleChordRender();
   }
 }
 
@@ -1091,7 +1171,9 @@ function handleKeyUp(e) {
     pressedKeys.delete(key);
     activeMidiNotes.delete(midiNote);
     stopNote(midiNote);
-    render();
+    // Update keyboard immediately, then schedule chord render
+    updateKeyboard();
+    scheduleChordRender();
   }
 }
 
