@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Midi Chord Explorer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "IBM Plex Sans", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #050816;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 1100px;
+      min-height: calc(100vh - 48px);
+      background: radial-gradient(circle at top, #1d2433, #020617);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-filters {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-group label {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.8);
+      color: #e0f2fe;
+      font-size: 0.85rem;
+      font-family: "IBM Plex Sans", sans-serif;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .filter-group select:hover,
+    .filter-group input:hover {
+      border-color: rgba(165, 243, 252, 0.5);
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+      outline: none;
+      border-color: #a5f3fc;
+    }
+
+    .filter-group select {
+      min-width: 120px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: none;
+      padding-right: 28px;
+    }
+
+    .style-filter-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    .style-filter-wrapper::after {
+      content: "expand_more";
+      font-family: "Material Icons";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: #e0f2fe;
+      font-size: 1.2rem;
+      line-height: 1;
+      font-style: normal;
+      font-weight: normal;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: "liga";
+      font-feature-settings: "liga";
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .filter-group input {
+      min-width: 20px;
+    }
+
+    .mood-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .mood-dropdown-button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.8);
+      color: #e0f2fe;
+      font-size: 0.85rem;
+      font-family: "IBM Plex Sans", sans-serif;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      min-width: 140px;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mood-dropdown-button:hover {
+      border-color: rgba(165, 243, 252, 0.5);
+    }
+
+    .mood-dropdown-button:focus {
+      outline: none;
+      border-color: #a5f3fc;
+    }
+
+    .mood-dropdown-content {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 6px;
+      padding: 8px;
+      min-width: 200px;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .mood-dropdown-content.show {
+      display: block;
+    }
+
+    .mood-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 4px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .mood-checkbox-item:hover {
+      background-color: rgba(148, 163, 184, 0.1);
+    }
+
+    .mood-checkbox-item input[type="checkbox"] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+
+    .mood-checkbox-item label {
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: #e0f2fe;
+      margin: 0;
+      flex: 1;
+    }
+
+    .status {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(94, 234, 212, 0.6);
+      color: #a5f3fc;
+    }
+
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .card {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: rgba(15, 23, 42, 0.85);
+      border-radius: 20px;
+      padding: 16px 18px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      backdrop-filter: blur(16px);
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+    }
+
+    .subtle {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+
+    .keys-row {
+      display: grid;
+      grid-template-columns: 1fr 0.5fr 1fr 0.5fr 1fr 1fr 0.5fr 1fr 0.5fr 1fr 0.5fr 1fr;
+      gap: 4px;
+    }
+
+    .key {
+      position: relative;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      background: #111827;
+      transition: border-color 400ms ease-out;
+    }
+
+    .key:not(.active) .key-label {
+      opacity: 0.5;
+    }
+
+    .key.active {
+      border-color: #a5f3fc;
+      background-color: rgba(165, 243, 252, 0.1);
+      color: #e0f2fe;
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.8),
+                  0 0 18px rgba(59, 130, 246, 0.9);
+    }
+
+    .key.possible:not(.active) {
+      border-color: rgba(34, 197, 94, 0.8);
+      background-color: rgba(34, 197, 94, 0.1);
+    }
+
+    .key-label {
+      z-index: 2;
+    }
+
+    .chords-list {
+      flex: 1 1 0;
+      overflow-y: auto;
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding-right: 6px;
+    }
+
+    .chord-row {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(55, 65, 81, 0.3);
+      font-size: 0.85rem;
+    }
+
+    .chord-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .chord-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .chip {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: #9ca3af;
+    }
+
+    .chord-line {
+      color: #9ca3af;
+      margin-top: 3px;
+      line-height: 1.3;
+    }
+
+    .chord-section-header {
+      opacity: 0.5;
+    }
+
+    .copy-btn {
+      margin-left: auto;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+      color: #9ca3af;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.6);
+      color: #a5f3fc;
+    }
+
+    .copy-btn:active {
+      transform: scale(0.95);
+    }
+
+    .copy-btn.copied {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: rgba(34, 197, 94, 0.6);
+      color: #86efac;
+    }
+
+    .bookmark-btn {
+      padding: 6px;
+      font-size: 1rem;
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    .bookmark-btn:hover {
+      background: rgba(148, 163, 184, 0.1);
+      color: #fbbf24;
+    }
+
+    .bookmark-btn.bookmarked {
+      color: #fbbf24;
+    }
+
+    .bookmark-btn.bookmarked:hover {
+      color: #f59e0b;
+    }
+
+    footer {
+      margin-top: auto;
+      padding-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    footer a {
+      color: #a5f3fc;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: #7dd3fc;
+      text-decoration: underline;
+    }
+
+    #info-link:hover {
+      color: #7dd3fc;
+      text-decoration: underline;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: radial-gradient(circle at top, #1d2433, #020617);
+      border-radius: 16px;
+      padding: 0;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      animation: modalFadeIn 0.3s ease-out;
+    }
+
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+      width: 32px;
+      height: 32px;
+    }
+
+    .modal-close:hover {
+      background: rgba(148, 163, 184, 0.1);
+      color: #e0f2fe;
+    }
+
+    .modal-close .material-icons {
+      font-size: 24px;
+    }
+
+    .modal-body {
+      padding: 24px;
+      color: #9ca3af;
+      line-height: 1.4;
+      font-size: 0.9rem;
+    }
+
+    .modal-body p {
+      margin: 0 0 16px 0;
+      color: #9ca3af;
+    }
+
+    .modal-body ul {
+      margin: 16px 0;
+      padding-left: 24px;
+    }
+
+    .modal-body li {
+      margin: 8px 0;
+    }
+
+    .modal-body strong {
+      color: #d1d5db;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <h1>
+    Midi Chord Explorer
+    <span id="midi-status" class="status">Connecting MIDI…</span>
+  </h1>
+
+  <div class="header-filters">
+    <div class="filter-group">
+      <label for="style-filter">Style:</label>
+      <div class="style-filter-wrapper">
+        <select id="style-filter">
+          <option value="">All Styles</option>
+          <option value="dreamy">Dreamy</option>
+          <option value="jazzy">Jazzy</option>
+          <option value="modern">Modern</option>
+          <option value="chill">Chill</option>
+          <option value="groovy">Groovy</option>
+          <option value="romantic">Romantic</option>
+          <option value="exotic">Exotic</option>
+          <option value="fusion">Fusion</option>
+          <option value="dark">Dark</option>
+          <option value="ethereal">Ethereal</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label for="mood-filter">Mood:</label>
+      <div class="mood-dropdown">
+        <button class="mood-dropdown-button" id="mood-filter-button" type="button">
+          <span id="mood-filter-text">All Moods</span>
+          <span class="material-icons" style="font-size: 1.2rem; line-height: 1; display: inline-flex; align-items: center;">expand_more</span>
+        </button>
+        <div class="mood-dropdown-content" id="mood-filter-dropdown"></div>
+      </div>
+    </div>
+    <div class="filter-group" style="margin-left: auto;">
+      <a href="#" id="info-link" style="font-size: 0.85rem; color: #a5f3fc; text-decoration: none; margin-right: 12px; transition: color 0.2s;">About</a>
+      <span style="font-size: 0.85rem; color: #9ca3af;">Chord Results: <span id="chord-count">0</span></span>
+    </div>
+  </div>
+
+  <!-- Info Modal -->
+  <div id="info-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 style="margin: 0; font-size: 1.2rem;">About</h2>
+        <button class="modal-close" id="modal-close-btn" type="button">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Preferred usage</strong></p>
+        <p>This app is Chrome-only. Connect your synth via usb-c to your computer. The app detects the midi. You can start playing.</p>
+
+        <p><strong>Computer keyboard fallback</strong></p>
+        <p>If you don't have a way to connect your synth to the computer via usb midi, you can play notes using your computer keys.</p>
+        <p>For example: C4 is the key "A", C♯4 is the key "W", D4 is the key "S" …and so on.</p>
+
+        <p><strong>Chord completion hints</strong></p>
+        <p>If you're missing notes of a chord, the app will show which notes to add to complete the full chord.</p>
+
+        <p><strong>Bookmark chords you care about</strong></p>
+        <p>You can bookmark any chord by clicking the star icon next to its name. This lets you easily find and focus on favorites.</p>
+
+        <p><strong>Copy full chord info</strong></p>
+        <p>Click on the Copy button to copy the entire card contents to your clipboard, including the chord name, tones, voice-leading, and scales.</p>
+
+        <p><strong>"Where next" section</strong></p>
+        <p>This section suggests musically logical next chords you might go to from the current one.</p>
+
+        <p><strong>"Voice-leading" section</strong></p>
+        <p>This shows how to move smoothly from the current chord to the suggested next chords. It breaks down which notes you keep, which you drop, and which you add.</p>
+
+        <p><strong>"Scale context" section</strong></p>
+        <p>This shows which scales fit the chord and lists the notes of those scales.</p>
+
+        <p>Have fun!</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="card">
+      <div id="keys" class="keys-row"></div>
+
+      <div id="chords" class="chords-list"></div>
+    </div>
+  </div>
+
+  <footer>
+    <div style="text-align: center;">
+      Created by <a href="https://www.youtube.com/@20WattsOfPower" target="_blank" rel="noopener noreferrer">20WattsOfPower</a>
+    </div>
+  </footer>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
