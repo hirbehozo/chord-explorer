@@ -698,8 +698,12 @@ function renderChordCard(chord, isBookmarked = false) {
   return row;
 }
 
-// Main render function
-function render() {
+// Render scheduling for performance
+let renderScheduled = false;
+let renderFrameId = null;
+
+// Fast keyboard update (called immediately on MIDI events)
+function updateKeyboard() {
   const pcs = new Set([...activeMidiNotes].map(n => (n % 12 + 12) % 12));
 
   // Track previous active pitch classes BEFORE clearing
@@ -745,7 +749,11 @@ function render() {
       }
     }
   });
+}
 
+// Expensive chord rendering (deferred to requestAnimationFrame)
+function renderChords() {
+  const pcs = new Set([...activeMidiNotes].map(n => (n % 12 + 12) % 12));
   const chords = detectChords(activeMidiNotes);
   const holdingPrevious = activeMidiNotes.size === 0;
   if (!holdingPrevious) {
@@ -852,6 +860,25 @@ function render() {
     const row = renderChordCard(chord, isBookmarked);
     chordsContainer.appendChild(row);
     });
+}
+
+// Main render function - schedules updates efficiently
+function render() {
+  // Update keyboard immediately for instant visual feedback
+  updateKeyboard();
+  
+  // Schedule expensive chord rendering for next animation frame
+  if (!renderScheduled) {
+    renderScheduled = true;
+    if (renderFrameId !== null) {
+      cancelAnimationFrame(renderFrameId);
+    }
+    renderFrameId = requestAnimationFrame(() => {
+      renderScheduled = false;
+      renderFrameId = null;
+      renderChords();
+    });
+  }
 }
 
 // === MIDI handling ===
