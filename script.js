@@ -469,6 +469,60 @@ for (let pc = 0; pc < 12; pc++) {
   keyElements.push(div);
 }
 
+// Helper function to render text with highlighted active notes
+function renderTextWithHighlightedNotes(text, activePcs) {
+  const fragment = document.createDocumentFragment();
+  
+  // Split text by note names, keeping separators
+  // Match note names (C, C♯, D, D♯, E, F, F♯, G, A♭, A, B♭, B)
+  const notePattern = /(C♯|D♯|F♯|A♭|B♭|[CDEFGAB])/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = notePattern.exec(text)) !== null) {
+    // Add text before the note
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+    }
+    // Add the note
+    const noteName = match[0];
+    const pc = NOTE_NAMES.indexOf(noteName);
+    if (pc !== -1) {
+      parts.push({ type: 'note', content: noteName, pc });
+    } else {
+      // If note not found, treat as regular text
+      parts.push({ type: 'text', content: noteName });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.substring(lastIndex) });
+  }
+  
+  // If no notes found, just add the text as-is
+  if (parts.length === 0) {
+    fragment.appendChild(document.createTextNode(text));
+  } else {
+    parts.forEach(part => {
+      if (part.type === 'note') {
+        const span = document.createElement("span");
+        span.textContent = part.content;
+        if (activePcs.has(part.pc)) {
+          span.style.color = "#ffffff";
+        }
+        fragment.appendChild(span);
+      } else {
+        fragment.appendChild(document.createTextNode(part.content));
+      }
+    });
+  }
+  
+  return fragment;
+}
+
 // Helper function to render a single chord card
 function renderChordCard(chord, isBookmarked = false) {
   const row = document.createElement("div");
@@ -704,7 +758,8 @@ function renderChordCard(chord, isBookmarked = false) {
       const line = document.createElement("div");
       line.className = "chord-line";
       const rolePart = d.roleWord ? ` ${d.roleWord}` : "";
-      line.textContent = `${d.notes} (${d.shortName}${rolePart})`;
+      const text = `${d.notes} (${d.shortName}${rolePart})`;
+      line.appendChild(renderTextWithHighlightedNotes(text, activePcs));
       row.appendChild(line);
     });
 
@@ -716,7 +771,8 @@ function renderChordCard(chord, isBookmarked = false) {
     nextData.forEach(d => {
       const vlLine = document.createElement("div");
       vlLine.className = "chord-line";
-      vlLine.textContent = `to ${d.shortName}: ${d.voiceText}`;
+      const text = `to ${d.shortName}: ${d.voiceText}`;
+      vlLine.appendChild(renderTextWithHighlightedNotes(text, activePcs));
       row.appendChild(vlLine);
     });
   }
@@ -732,7 +788,8 @@ function renderChordCard(chord, isBookmarked = false) {
     scales.forEach(s => {
       const scLine = document.createElement("div");
       scLine.className = "chord-line";
-      scLine.textContent = `${s.name}: ${s.notes.join("-")}`;
+      const text = `${s.name}: ${s.notes.join("-")}`;
+      scLine.appendChild(renderTextWithHighlightedNotes(text, activePcs));
       row.appendChild(scLine);
     });
   }
