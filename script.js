@@ -566,12 +566,10 @@ function renderChordCard(chord, isBookmarked = false) {
         
         const nextSet = new Set(nextPcs);
         const keep = [...currentPcsSet].filter(pc => nextSet.has(pc)).map(pcToName);
-        const drop = [...currentPcsSet].filter(pc => !nextSet.has(pc)).map(pcToName);
         const add  = [...nextSet].filter(pc => !currentPcsSet.has(pc)).map(pcToName);
         
         const parts = [];
         if (keep.length) parts.push(`keep ${keep.join(", ")}`);
-        if (drop.length) parts.push(`drop ${drop.join(", ")}`);
         if (add.length)  parts.push(`add ${add.join(", ")}`);
         
         const voiceText = parts.length ? parts.join("; ") : "(no change)";
@@ -681,12 +679,10 @@ function renderChordCard(chord, isBookmarked = false) {
 
       const nextSet = new Set(nextPcs);
       const keep = [...currentPcsSet].filter(pc => nextSet.has(pc)).map(pcToName);
-      const drop = [...currentPcsSet].filter(pc => !nextSet.has(pc)).map(pcToName);
       const add  = [...nextSet].filter(pc => !currentPcsSet.has(pc)).map(pcToName);
 
       const parts = [];
       if (keep.length) parts.push(`keep ${keep.join(", ")}`);
-      if (drop.length) parts.push(`drop ${drop.join(", ")}`);
       if (add.length)  parts.push(`add ${add.join(", ")}`);
 
       const voiceText = parts.length ? parts.join("; ") : "(no change)";
