@@ -559,10 +559,10 @@ function renderChordCard(chord, isBookmarked = false) {
         else                         shortName = pcToName(s.rootPc);
         
         let roleWord = "";
-        if (s.role === "dominant")            roleWord = "dominant";
-        else if (s.role === "subdominant")    roleWord = "subdominant";
-        else if (s.role === "relative major") roleWord = "relative major";
-        else if (s.role === "relative minor") roleWord = "relative minor";
+        if (s.role === "dominant")            roleWord = "dom";
+        else if (s.role === "subdominant")    roleWord = "sub";
+        else if (s.role === "relative major") roleWord = "rel";
+        else if (s.role === "relative minor") roleWord = "rel";
         
         const nextSet = new Set(nextPcs);
         const keep = [...currentPcsSet].filter(pc => nextSet.has(pc)).map(pcToName);
@@ -672,10 +672,10 @@ function renderChordCard(chord, isBookmarked = false) {
       else                         shortName = pcToName(s.rootPc);
 
       let roleWord = "";
-      if (s.role === "dominant")            roleWord = "dominant";
-      else if (s.role === "subdominant")    roleWord = "subdominant";
-      else if (s.role === "relative major") roleWord = "relative major";
-      else if (s.role === "relative minor") roleWord = "relative minor";
+      if (s.role === "dominant")            roleWord = "dom";
+      else if (s.role === "subdominant")    roleWord = "sub";
+      else if (s.role === "relative major") roleWord = "rel";
+      else if (s.role === "relative minor")  roleWord = "rel";
 
       const nextSet = new Set(nextPcs);
       const keep = [...currentPcsSet].filter(pc => nextSet.has(pc)).map(pcToName);
