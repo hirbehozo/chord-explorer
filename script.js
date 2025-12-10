@@ -475,7 +475,10 @@ function renderTextWithHighlightedNotes(text, activePcs) {
   
   // Split text by note names, keeping separators
   // Match note names (C, C♯, D, D♯, E, F, F♯, G, A♭, A, B♭, B)
-  const notePattern = /(C♯|D♯|F♯|A♭|B♭|[CDEFGAB])/g;
+  // Use negative lookahead to exclude:
+  // 1. Notes followed by digits (like G7, Cmaj7)
+  // 2. Notes followed by space and then a word starting with capital letter (like "C Mixolydian", "C Ionian")
+  const notePattern = /(C♯|D♯|F♯|A♭|B♭|[CDEFGAB])(?!\d)(?!\s+[A-Z][a-z])/g;
   const parts = [];
   let lastIndex = 0;
   let match;
