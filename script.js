@@ -534,7 +534,7 @@ function renderChordCard(chord, isBookmarked = false) {
     
     // Missing notes
     if (chord.missingPcs.length === 0) {
-      chordText += "Missing notes: none – full voicing already!\n";
+      chordText += "Missing notes: none\n";
     } else {
       const missingNames = chord.missingPcs.map(pcToName).join(", ");
       chordText += `Missing notes: ${missingNames}\n`;
@@ -634,7 +634,7 @@ function renderChordCard(chord, isBookmarked = false) {
     labelSpan.className = "chord-section-header";
     labelSpan.textContent = "Missing notes: ";
     missingLine.appendChild(labelSpan);
-    missingLine.appendChild(document.createTextNode("none – full voicing already!"));
+    missingLine.appendChild(document.createTextNode("none"));
   } else {
     const labelSpan = document.createElement("span");
     labelSpan.className = "chord-section-header";
