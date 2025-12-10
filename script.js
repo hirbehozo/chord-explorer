@@ -1028,6 +1028,54 @@ function scheduleChordRender() {
   }
 }
 
+let currentMidiInput = null;
+let midiAccess = null;
+
+function updateMidiStatus() {
+  if (!midiAccess) return;
+  
+  const inputs = [...midiAccess.inputs.values()];
+  const activeInputs = inputs.filter(input => input.state === 'connected');
+  
+  if (activeInputs.length === 0) {
+    midiStatusEl.innerHTML = "No Midi detected. <a href='#' onclick='location.reload(); return false;' style='color: #a5f3fc; text-decoration: underline; margin-left: 8px;'>Reload</a>";
+    currentMidiInput = null;
+    // Clear any active MIDI notes when device disconnects
+    activeMidiNotes.clear();
+    updateKeyboard();
+    scheduleChordRender();
+    return;
+  }
+
+  // Find or reconnect to an input
+  let input = activeInputs.find(i =>
+    (i.name || "").toLowerCase().includes("roland")
+  );
+  if (!input) input = activeInputs[0];
+
+  // Only update if we have a new input or the current one changed
+  if (input !== currentMidiInput) {
+    // Remove old handler if exists
+    if (currentMidiInput) {
+      currentMidiInput.onmidimessage = null;
+      currentMidiInput.onstatechange = null;
+    }
+    
+    currentMidiInput = input;
+    input.onmidimessage = handleMidiMessage;
+    
+    // Listen for state changes on this specific input
+    input.onstatechange = (e) => {
+      if (e.port.state === 'disconnected') {
+        updateMidiStatus();
+      }
+    };
+    
+    console.log("Using input:", input.name);
+    midiStatusEl.textContent = "Connected to Midi Device";
+  }
+}
+
 function initMidi() {
   if (!navigator.requestMIDIAccess) {
     midiStatusEl.textContent = "Web MIDI not supported in this browser.";
@@ -1037,25 +1085,16 @@ function initMidi() {
   }
 
   navigator.requestMIDIAccess()
-    .then(midiAccess => {
-      const inputs = [...midiAccess.inputs.values()];
-      console.log("MIDI inputs:", inputs);
-      console.log("MIDI outputs:", [...midiAccess.outputs.values()]);
-
-      if (inputs.length === 0) {
-        midiStatusEl.innerHTML = "No Midi detected. <a href='#' onclick='location.reload(); return false;' style='color: #a5f3fc; text-decoration: underline; margin-left: 8px;'>Reload</a>";
-        return;
-      }
-
-      let input = inputs.find(i =>
-        (i.name || "").toLowerCase().includes("roland")
-      );
-      if (!input) input = inputs[0];
-
-      console.log("Using input:", input.name);
-
-      input.onmidimessage = handleMidiMessage;
-      midiStatusEl.textContent = "Connected to Midi Device";
+    .then(access => {
+      midiAccess = access;
+      
+      // Listen for state changes on the MIDI access object
+      access.onstatechange = (e) => {
+        console.log("MIDI state change:", e.port.name, e.port.state);
+        updateMidiStatus();
+      };
+      
+      updateMidiStatus();
     })
     .catch(err => {
       console.error("MIDI error", err);
