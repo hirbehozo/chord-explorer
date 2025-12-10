@@ -477,8 +477,9 @@ function renderTextWithHighlightedNotes(text, activePcs) {
   // Match note names (C, C♯, D, D♯, E, F, F♯, G, A♭, A, B♭, B)
   // Use negative lookahead to exclude:
   // 1. Notes followed by digits (like G7, Cmaj7)
-  // 2. Notes followed by space and then a word starting with capital letter (like "C Mixolydian", "C Ionian")
-  const notePattern = /(C♯|D♯|F♯|A♭|B♭|[CDEFGAB])(?!\d)(?!\s+[A-Z][a-z])/g;
+  // 2. Notes followed by letters (like Fmaj7, Gmin7, Cmaj7) - both uppercase and lowercase
+  // 3. Notes followed by space and then a word starting with capital letter (like "C Mixolydian", "C Ionian")
+  const notePattern = /(C♯|D♯|F♯|A♭|B♭|[CDEFGAB])(?!\d)(?![a-zA-Z])(?!\s+[A-Z][a-z])/g;
   const parts = [];
   let lastIndex = 0;
   let match;
